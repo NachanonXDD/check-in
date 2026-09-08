@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-canvas: #f0f4f8;
+    --color-surface: #ffffff;
+    --color-primary: #0b57d0;
+    --color-ink: #1f1f1f;
+    --color-ink-muted: #444746;
+    --color-ink-soft: #5f6368;
+    --color-border: #e1e3e1;
+  }
+  
+  body {
+    font-family: 'Google Sans', 'Google Sans Flex', 'Inter', 'Noto Sans Thai', sans-serif;
+  }
+}
+
+@layer utilities {
+  .radius-pill {
+    border-radius: 9999px;
+  }
+  .radius-card {
+    border-radius: 32px;
+  }
+}
