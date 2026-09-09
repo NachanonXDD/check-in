@@ -304,10 +304,13 @@ export default function Members() {
       {detailModal.isOpen && detailModal.stats && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-surface radius-card w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex justify-between items-center p-6 border-b border-border sticky top-0 bg-surface z-10">
-              <div>
-                <h2 className="text-xl font-medium text-ink">ข้อมูลการซ้อม: {detailModal.member?.nickname}</h2>
-                <p className="text-sm text-ink-soft mt-1">ช่วงเวลาที่ประเมินผล: {dateFilter === 'all' ? 'ตั้งแต่เข้าร่วมทีม' : dateFilter === 'month' ? 'เดือนนี้' : `ตั้งแต่วันที่ ${formatThaiDate(startDate)}`}</p>
+            <div className="flex justify-between items-start p-6 border-b border-border sticky top-0 bg-surface z-10">
+              <div className="flex items-center gap-4">
+                <Avatar src={detailModal.member?.avatar_url} alt={detailModal.member?.nickname} size="lg" />
+                <div>
+                  <h2 className="text-xl font-medium text-ink">ข้อมูลการซ้อม: {detailModal.member?.nickname}</h2>
+                  <p className="text-sm text-ink-soft mt-1">ช่วงเวลาที่ประเมินผล: {dateFilter === 'all' ? 'ตั้งแต่เข้าร่วมทีม' : dateFilter === 'month' ? 'เดือนนี้' : `ตั้งแต่วันที่ ${formatThaiDate(startDate)}`}</p>
+                </div>
               </div>
               <button onClick={() => setDetailModal({ isOpen: false, member: null, stats: null })} className="text-ink-soft hover:text-ink text-2xl leading-none bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center">&times;</button>
             </div>
