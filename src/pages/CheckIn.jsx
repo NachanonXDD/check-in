@@ -120,14 +120,25 @@ export default function CheckIn() {
 
   const handleSaveNote = async (e) => {
     e.preventDefault();
-    const { member, status, noteType, customNote } = noteModal;
+    const { member, noteType, customNote } = noteModal;
     let finalNote = noteType === 'อื่นๆ' ? customNote : noteType;
     if (noteType === 'ไม่มี') finalNote = '';
 
+    const originalStatus = getStatus(member.id);
+    let finalStatus = originalStatus;
+    
+    // Auto-switch to leave if it's an excused note
+    if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(noteType)) {
+      finalStatus = 'leave';
+    } else if (originalStatus === 'leave' && noteType !== 'ลา' && noteType !== 'บาดเจ็บ' && noteType !== 'วันพัก') {
+      // If it was leave, but note is removed or changed to something else, revert to absent
+      finalStatus = 'absent';
+    }
+
     setNoteModal({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' });
     try {
-      await api.post('updateNote', { member_id: member.id, date: currentDate, note: finalNote, status });
-      addToast(`บันทึกข้อมูล ${member.nickname} สำเร็จ`);
+      await api.post('updateNote', { member_id: member.id, date: currentDate, note: finalNote, status: finalStatus });
+      addToast(`บันทึกหมายเหตุ ${member.nickname} สำเร็จ`);
       fetchData();
     } catch (err) {
       addToast('เกิดข้อผิดพลาด', 'error');
@@ -337,37 +348,12 @@ export default function CheckIn() {
         message="ต้องการเช็คชื่อสมาชิกที่ยังไม่ได้เช็คชื่อทั้งหมดหรือไม่?"
       />
 
-      <Modal isOpen={noteModal.isOpen} onClose={() => setNoteModal({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' })} title={`จัดการข้อมูล: ${noteModal.member?.nickname}`}>
+      <Modal isOpen={noteModal.isOpen} onClose={() => setNoteModal({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' })} title={`จัดการหมายเหตุ: ${noteModal.member?.nickname}`}>
         <form onSubmit={handleSaveNote} className="space-y-4">
           <div>
-             <label className="block text-sm font-medium text-ink mb-2">สถานะ</label>
-             <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                   <input type="radio" name="status" checked={noteModal.status === 'absent'} onChange={() => setNoteModal({ ...noteModal, status: 'absent' })} className="accent-primary" />
-                   <span className="text-sm">ขาด / ยังไม่มาซ้อม</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                   <input type="radio" name="status" checked={noteModal.status === 'present'} onChange={() => setNoteModal({ ...noteModal, status: 'present' })} className="accent-primary" />
-                   <span className="text-sm">มาซ้อม</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                   <input type="radio" name="status" checked={noteModal.status === 'leave'} onChange={() => setNoteModal({ ...noteModal, status: 'leave' })} className="accent-primary" />
-                   <span className="text-sm">ลาพัก (ไม่นำมาคิดเปอร์เซ็นต์)</span>
-                </label>
-             </div>
-          </div>
-          <div>
-             <label className="block text-sm font-medium text-ink mb-2">หมายเหตุ</label>
              <Select 
                 value={noteModal.noteType} 
-                onChange={(e) => {
-                   const val = e.target.value;
-                   let newStatus = noteModal.status;
-                   if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(val)) {
-                      newStatus = 'leave';
-                   }
-                   setNoteModal({ ...noteModal, noteType: val, status: newStatus });
-                }}
+                onChange={(e) => setNoteModal({ ...noteModal, noteType: e.target.value })}
              >
                 <option value="ไม่มี">-- ไม่มี --</option>
                 <option value="ลา">ลา</option>
