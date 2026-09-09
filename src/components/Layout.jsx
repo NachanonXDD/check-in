@@ -97,7 +97,8 @@ export const BottomNav = () => {
 };
 
 export const Layout = ({ children }) => {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   
   return (
     <div className="min-h-screen bg-canvas">
