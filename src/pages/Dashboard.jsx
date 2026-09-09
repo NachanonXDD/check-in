@@ -3,6 +3,7 @@ import { Card, Loading, Select, Button, Badge } from '../components/UI';
 import { Modal } from '../components/Modal';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { formatThaiDate, getCurrentISODate, formatThaiTime } from '../utils/date';
 import { Avatar } from '../components/Avatar';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+  const { user } = useAuth();
 
   const [dateFilter, setDateFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -224,21 +226,29 @@ export default function Dashboard() {
           <Calendar size={18} />
           <span className="text-sm font-medium">ตัวกรอง</span>
         </div>
-        <Select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-auto py-1.5 text-sm border-none bg-transparent hover:bg-gray-50 focus:ring-0">
-          <option value="all">ทั้งหมด (ตั้งแต่เริ่ม)</option>
-          <option value="today">วันนี้</option>
-          <option value="week">สัปดาห์นี้</option>
-          <option value="month">เดือนนี้</option>
-          <option value="custom">กำหนดเอง</option>
-        </Select>
-        {dateFilter === 'custom' && (
-          <div className="flex items-center gap-2">
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="text-sm border-none bg-gray-50 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary" />
-            <span className="text-ink-soft">-</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="text-sm border-none bg-gray-50 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary" />
-          </div>
+        
+        {user ? (
+          <>
+            <Select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-auto py-1.5 text-sm border-none bg-transparent hover:bg-gray-50 focus:ring-0">
+              <option value="all">ทั้งหมด (ตั้งแต่เริ่ม)</option>
+              <option value="today">วันนี้</option>
+              <option value="week">สัปดาห์นี้</option>
+              <option value="month">เดือนนี้</option>
+              <option value="custom">กำหนดเอง</option>
+            </Select>
+            {dateFilter === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="text-sm border-none bg-gray-50 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary" />
+                <span className="text-ink-soft">-</span>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="text-sm border-none bg-gray-50 rounded-lg px-3 py-1.5 focus:ring-1 focus:ring-primary" />
+              </div>
+            )}
+            <div className="h-6 w-px bg-border/50 mx-2"></div>
+          </>
+        ) : (
+          <div className="px-2 text-sm text-ink-soft">ตั้งแต่เริ่มซ้อม</div>
         )}
-        <div className="h-6 w-px bg-border/50 mx-2"></div>
+
         <Select value={groupFilter} onChange={e => setGroupFilter(e.target.value)} className="w-auto py-1.5 text-sm border-none bg-transparent hover:bg-gray-50 focus:ring-0">
           <option value="">ทุกกลุ่มกีฬา</option>
           {data?.groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}

@@ -3,6 +3,7 @@ import { Card, Loading, Select, Input, Badge } from '../components/UI';
 import { Modal } from '../components/Modal';
 import { api } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { formatThaiDate, formatThaiTime, getCurrentISODate } from '../utils/date';
 import { Search } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
@@ -13,6 +14,7 @@ export default function Members() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
+  const { user } = useAuth();
 
   const [search, setSearch] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
@@ -196,28 +198,30 @@ export default function Members() {
       <h1 className="text-2xl font-medium text-ink">รายบุคคล</h1>
       
       <Card>
-        <div className="flex flex-wrap gap-4 items-end mb-6 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-          <div>
-            <label className="block text-xs text-blue-800 font-medium mb-1">ช่วงเวลาที่ใช้นับสถิติ</label>
-            <Select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-40 py-2 border-blue-200 focus:border-blue-500 focus:ring-blue-500">
-              <option value="all">ทั้งหมด (ตั้งแต่เริ่ม)</option>
-              <option value="month">เดือนนี้</option>
-              <option value="custom">กำหนดวันเริ่มซ้อม</option>
-            </Select>
+        {user && (
+          <div className="flex flex-wrap gap-4 items-end mb-6 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+            <div>
+              <label className="block text-xs text-blue-800 font-medium mb-1">ช่วงเวลาที่ใช้นับสถิติ (เฉพาะแอดมิน)</label>
+              <Select value={dateFilter} onChange={e => setDateFilter(e.target.value)} className="w-40 py-2 border-blue-200 focus:border-blue-500 focus:ring-blue-500">
+                <option value="all">ทั้งหมด (ตั้งแต่เริ่ม)</option>
+                <option value="month">เดือนนี้</option>
+                <option value="custom">กำหนดวันเริ่มซ้อม</option>
+              </Select>
+            </div>
+            {dateFilter === 'custom' && (
+              <>
+                <div>
+                  <label className="block text-xs text-blue-800 font-medium mb-1">เริ่มซ้อมเมื่อ</label>
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-blue-200 rounded-full px-3 py-1.5 bg-surface focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-blue-800 font-medium mb-1">ถึงวันที่ (ไม่ระบุก็ได้)</label>
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border border-blue-200 rounded-full px-3 py-1.5 bg-surface focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </>
+            )}
           </div>
-          {dateFilter === 'custom' && (
-            <>
-              <div>
-                <label className="block text-xs text-blue-800 font-medium mb-1">เริ่มซ้อมเมื่อ</label>
-                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-blue-200 rounded-full px-3 py-1.5 bg-surface focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-blue-800 font-medium mb-1">ถึงวันที่ (ไม่ระบุก็ได้)</label>
-                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border border-blue-200 rounded-full px-3 py-1.5 bg-surface focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" />
-              </div>
-            </>
-          )}
-        </div>
+        )}
 
         <div className="flex flex-wrap gap-4 items-end mb-6">
           <div className="flex-1 min-w-[200px] relative">
