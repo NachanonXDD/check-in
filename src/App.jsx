@@ -21,7 +21,7 @@ const ProtectedRoute = ({ children }) => {
   }
   
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Layout>{children}</Layout>;
@@ -36,6 +36,11 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+// A route that uses the layout but doesn't require login
+const LayoutRoute = ({ children }) => {
+  return <Layout>{children}</Layout>;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -44,11 +49,11 @@ function App() {
           <Routes>
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route path="/" element={<ProtectedRoute><CheckIn /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<LayoutRoute><Dashboard /></LayoutRoute>} />
+            <Route path="/members" element={<LayoutRoute><Members /></LayoutRoute>} />
             <Route path="/manage" element={<ProtectedRoute><ManageMembers /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </HashRouter>
       </ToastProvider>

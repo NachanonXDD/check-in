@@ -75,8 +75,9 @@ export default function Dashboard() {
       checkedInToday = records.filter(r => r.session_id === todaySession.id && r.attendance_status === 'present' && activeMemberIds.has(r.member_id)).length;
     }
 
-    const totalPossible = totalActiveMembers * filteredSessions.length;
     const totalPresent = relevantRecords.filter(r => r.attendance_status === 'present').length;
+    const leaveCount = relevantRecords.filter(r => r.attendance_status === 'leave').length;
+    const totalPossible = Math.max(0, (totalActiveMembers * filteredSessions.length) - leaveCount);
     const attendanceRate = totalPossible === 0 ? 0 : Math.round((totalPresent / totalPossible) * 100);
 
     // Leaderboard & Streak
@@ -86,15 +87,17 @@ export default function Dashboard() {
     const sortedSessions = [...sessions].sort((a,b) => a.session_date.localeCompare(b.session_date));
     sortedSessions.forEach(s => {
        if (s.session_date > todayDateStr) return;
-       const sessionRecords = records.filter(r => r.session_id === s.id && r.attendance_status === 'present');
-       const presentIds = new Set(sessionRecords.map(r => r.member_id));
+       const sessionRecords = records.filter(r => r.session_id === s.id);
+       const presentIds = new Set(sessionRecords.filter(r => r.attendance_status === 'present').map(r => r.member_id));
+       const leaveIds = new Set(sessionRecords.filter(r => r.attendance_status === 'leave').map(r => r.member_id));
        
        activeMembers.forEach(m => {
            if (presentIds.has(m.id)) {
                memberStats[m.id].currentStreak++;
                if (memberStats[m.id].currentStreak > memberStats[m.id].streak) memberStats[m.id].streak = memberStats[m.id].currentStreak;
                if (sessionIds.has(s.id)) memberStats[m.id].attendance++; // Count attendance only in filter
-           } else {
+           } else if (!leaveIds.has(m.id)) {
+               // Only reset streak if they didn't leave (absent)
                memberStats[m.id].currentStreak = 0;
            }
        });
@@ -105,8 +108,11 @@ export default function Dashboard() {
 
     // Chart Data (Area Chart)
     const chartData = filteredSessions.slice(0, 30).reverse().map(s => {
-        const presentCount = records.filter(r => r.session_id === s.id && r.attendance_status === 'present' && activeMemberIds.has(r.member_id)).length;
-        const rate = totalActiveMembers === 0 ? 0 : Math.round((presentCount / totalActiveMembers) * 100);
+        const sessionRecs = records.filter(r => r.session_id === s.id && activeMemberIds.has(r.member_id));
+        const presentCount = sessionRecs.filter(r => r.attendance_status === 'present').length;
+        const leaveCountForSession = sessionRecs.filter(r => r.attendance_status === 'leave').length;
+        const possibleForSession = totalActiveMembers - leaveCountForSession;
+        const rate = possibleForSession <= 0 ? 0 : Math.round((presentCount / possibleForSession) * 100);
         return {
             date: formatThaiDate(s.session_date).split(' ')[0] + ' ' + formatThaiDate(s.session_date).split(' ')[1],
             'เปอร์เซ็นต์การมา': rate,
@@ -128,9 +134,12 @@ export default function Dashboard() {
 
     // Table Data
     const tableData = filteredSessions.map(s => {
-        const presentCount = records.filter(r => r.session_id === s.id && r.attendance_status === 'present' && activeMemberIds.has(r.member_id)).length;
-        const rate = totalActiveMembers === 0 ? 0 : Math.round((presentCount / totalActiveMembers) * 100);
-        return { ...s, presentCount, totalActiveMembers, rate };
+        const sessionRecs = records.filter(r => r.session_id === s.id && activeMemberIds.has(r.member_id));
+        const presentCount = sessionRecs.filter(r => r.attendance_status === 'present').length;
+        const leaveCountForSession = sessionRecs.filter(r => r.attendance_status === 'leave').length;
+        const possibleForSession = totalActiveMembers - leaveCountForSession;
+        const rate = possibleForSession <= 0 ? 0 : Math.round((presentCount / possibleForSession) * 100);
+        return { ...s, presentCount, totalPossible: possibleForSession, rate };
     });
 
     return {
@@ -399,9 +408,9 @@ export default function Dashboard() {
                     {filteredData.tableData.map(s => (
                       <tr key={s.id} onClick={() => openDayDetail(s)} className="border-b border-border/50 hover:bg-gray-50/80 cursor-pointer transition-colors group">
                         <td className="py-4 px-6 font-medium text-ink">{formatThaiDate(s.session_date)}</td>
-                        <td className="py-4 px-6 text-center">
+                        <td className="py-3 px-4 text-center">
                           <span className="font-medium text-ink">{s.presentCount}</span>
-                          <span className="text-ink-soft text-sm"> / {s.totalActiveMembers}</span>
+                          <span className="text-ink-soft text-xs ml-1"> / {s.totalPossible}</span>
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-3">

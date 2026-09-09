@@ -54,19 +54,20 @@ export default function CheckIn() {
     fetchData();
   }, [currentDate]);
 
-  const handleCheckIn = async (member) => {
-    // Optimistic Update
+  const handleCheckIn = async (member, status = 'present') => {
+    // Optimistic
     const now = new Date().toISOString();
-    const tempRecord = { member_id: member.id, attendance_status: 'present', checked_in_at: now };
     setRecords(prev => {
       const existing = prev.find(r => r.member_id === member.id);
-      if (existing) return prev.map(r => r.member_id === member.id ? { ...r, ...tempRecord } : r);
-      return [...prev, tempRecord];
+      if (existing) {
+        return prev.map(r => r.member_id === member.id ? { ...r, attendance_status: status, checked_in_at: now } : r);
+      }
+      return [...prev, { member_id: member.id, attendance_status: status, checked_in_at: now, note: '' }];
     });
     
     try {
-      await api.post('checkIn', { member_id: member.id, date: currentDate });
-      addToast(`เช็คชื่อ ${member.nickname} แล้ว เวลา ${formatThaiTime(now)}`);
+      await api.post('checkIn', { member_id: member.id, date: currentDate, time: formatThaiTime(now), status });
+      addToast(status === 'present' ? `เช็คชื่อ ${member.nickname} แล้ว` : `บันทึกการลา ${member.nickname} แล้ว`);
     } catch (err) {
       addToast('เกิดข้อผิดพลาดในการเช็คชื่อ', 'error');
       fetchData(); // Revert
@@ -82,7 +83,7 @@ export default function CheckIn() {
     
     try {
       await api.post('cancelCheckIn', { member_id: member.id, date: currentDate });
-      addToast(`ยกเลิกเช็คชื่อ ${member.nickname} แล้ว`);
+      addToast(`ยกเลิกข้อมูล ${member.nickname} แล้ว`);
     } catch (err) {
       addToast('เกิดข้อผิดพลาด', 'error');
       fetchData();
@@ -90,14 +91,14 @@ export default function CheckIn() {
   };
 
   const handleCheckAll = async () => {
-    const unCheckedIds = getFilteredMembers(false).map(m => m.id);
-    if (unCheckedIds.length === 0) return;
+    const ids = unCheckedList.map(m => m.id);
+    if (ids.length === 0) return;
 
     setCheckAllModal(false);
     
     // Optimistic
     const now = new Date().toISOString();
-    const newRecords = unCheckedIds.map(id => ({ member_id: id, attendance_status: 'present', checked_in_at: now }));
+    const newRecords = ids.map(id => ({ member_id: id, attendance_status: 'present', checked_in_at: now }));
     setRecords(prev => {
       let next = [...prev];
       newRecords.forEach(nr => {
@@ -109,24 +110,18 @@ export default function CheckIn() {
     });
 
     try {
-      await api.post('checkAll', { member_ids: unCheckedIds, date: currentDate });
-      addToast(`เช็คชื่อทั้งหมดสำเร็จ`);
+      await api.post('checkInBulk', { member_ids: ids, date: currentDate, time: formatThaiTime(new Date()), status: 'present' });
+      addToast('เช็คชื่อทุกคนสำเร็จ');
     } catch (err) {
       addToast('เกิดข้อผิดพลาด', 'error');
       fetchData();
     }
   };
 
-  const handleSaveNote = async () => {
+  const handleSaveNote = async (e) => {
+    e.preventDefault();
     const { member, note } = noteModal;
     setNoteModal({ isOpen: false, member: null, note: '' });
-    
-    setRecords(prev => {
-      const existing = prev.find(r => r.member_id === member.id);
-      if (existing) return prev.map(r => r.member_id === member.id ? { ...r, note } : r);
-      return [...prev, { member_id: member.id, note }];
-    });
-
     try {
       await api.post('updateNote', { member_id: member.id, date: currentDate, note });
       addToast(`บันทึกหมายเหตุ ${member.nickname} สำเร็จ`);
@@ -137,15 +132,16 @@ export default function CheckIn() {
   };
 
   const getRecord = (memberId) => records.find(r => r.member_id === memberId);
-  const isCheckedIn = (memberId) => getRecord(memberId)?.attendance_status === 'present';
+  const getStatus = (memberId) => getRecord(memberId)?.attendance_status || 'absent';
+  const isCheckedIn = (memberId) => getStatus(memberId) !== 'absent';
 
-  const getFilteredMembers = (checked) => {
+  const getFilteredMembers = (status) => {
     return members
-      .filter(m => isCheckedIn(m.id) === checked)
+      .filter(m => getStatus(m.id) === status)
       .filter(m => m.nickname.toLowerCase().includes(search.toLowerCase()))
       .filter(m => groupFilter ? m.sport_group_id === groupFilter : true)
       .sort((a, b) => {
-        if (checked) {
+        if (status !== 'absent') {
           // Sort by checked in time desc
           const timeA = getRecord(a.id)?.checked_in_at || '';
           const timeB = getRecord(b.id)?.checked_in_at || '';
@@ -155,11 +151,12 @@ export default function CheckIn() {
       });
   };
 
-  const unCheckedList = getFilteredMembers(false);
-  const checkedList = getFilteredMembers(true);
+  const unCheckedList = getFilteredMembers('absent');
+  const presentList = getFilteredMembers('present');
+  const leaveList = getFilteredMembers('leave');
   
   const totalCount = members.length;
-  const checkedCount = members.filter(m => isCheckedIn(m.id)).length;
+  const checkedCount = presentList.length;
 
   return (
     <div className="space-y-6">
@@ -221,12 +218,15 @@ export default function CheckIn() {
                       <div key={m.id} className="flex items-center justify-between p-3 border border-border rounded-2xl bg-gray-50/50">
                         <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: note || '' })}>
                           <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
-                          <div>
-                            <div className="font-medium text-ink">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-ink truncate">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
                             {note && <div className="text-xs text-orange-600 mt-0.5 truncate">หมายเหตุ: {note}</div>}
                           </div>
                         </div>
-                        <Button variant="secondary" className="px-4 py-1.5 text-sm shrink-0" onClick={() => handleCheckIn(m)}>เช็คชื่อ</Button>
+                        <div className="flex gap-2 shrink-0">
+                          <Button variant="text" className="px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50" onClick={() => handleCheckIn(m, 'leave')}>ลา</Button>
+                          <Button variant="secondary" className="px-4 py-1.5 text-sm" onClick={() => handleCheckIn(m, 'present')}>เช็คชื่อ</Button>
+                        </div>
                       </div>
                     );
                   })}
@@ -236,26 +236,26 @@ export default function CheckIn() {
 
             {/* Checked */}
             <div>
-              <h3 className="text-lg font-medium mb-3 text-ink">เช็คชื่อแล้ว ({checkedList.length})</h3>
-              {checkedList.length === 0 ? <p className="text-ink-soft text-sm">ยังไม่มีคนเช็คชื่อ</p> : (
+              <h3 className="text-lg font-medium mb-3 text-ink">มาซ้อม ({presentList.length})</h3>
+              {presentList.length === 0 ? <p className="text-ink-soft text-sm">ยังไม่มีคนเช็คชื่อ</p> : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {checkedList.map(m => {
+                  {presentList.map(m => {
                     const group = groups.find(g => g.id === m.sport_group_id)?.name || '-';
                     const record = getRecord(m.id);
                     return (
                       <div key={m.id} className="flex items-center justify-between p-3 border border-green-200 bg-green-50 rounded-2xl">
                         <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: record?.note || '' })}>
                           <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
-                          <div>
-                            <div className="font-medium text-ink">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-ink truncate">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
                             <div className="flex items-center gap-2 mt-0.5">
                                <span className="text-xs text-green-700">{formatThaiTime(record?.checked_in_at)}</span>
                                {record?.note && <span className="text-xs text-orange-600 truncate">หมายเหตุ: {record.note}</span>}
                             </div>
                           </div>
                         </div>
-                        <button onClick={() => setCancelModal({ isOpen: true, member: m })} className="text-ink-soft hover:text-red-500 p-2">
-                           &times;
+                        <button onClick={() => setCancelModal({ isOpen: true, member: m })} className="text-ink-soft hover:text-red-500 p-2 shrink-0">
+                           <X size={20} />
                         </button>
                       </div>
                     );
@@ -263,6 +263,36 @@ export default function CheckIn() {
                 </div>
               )}
             </div>
+
+            {/* Leave */}
+            {leaveList.length > 0 && (
+              <div>
+                <h3 className="text-lg font-medium mb-3 text-orange-600">ลา ({leaveList.length})</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {leaveList.map(m => {
+                    const group = groups.find(g => g.id === m.sport_group_id)?.name || '-';
+                    const record = getRecord(m.id);
+                    return (
+                      <div key={m.id} className="flex items-center justify-between p-3 border border-orange-200 bg-orange-50 rounded-2xl">
+                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: record?.note || '' })}>
+                          <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-orange-700 truncate">{m.nickname} <span className="text-xs opacity-70 font-normal ml-1">({group})</span></div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                               <span className="text-xs text-orange-600">{formatThaiTime(record?.checked_in_at)}</span>
+                               {record?.note && <span className="text-xs text-orange-600 font-medium truncate">หมายเหตุ: {record.note}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <button onClick={() => setCancelModal({ isOpen: true, member: m })} className="text-orange-400 hover:text-red-500 p-2 shrink-0">
+                           <X size={20} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>

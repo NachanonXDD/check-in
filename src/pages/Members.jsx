@@ -88,9 +88,12 @@ export default function Members() {
         
         const validSessionIds = new Set(validSessions.map(s => s.id));
         const presentRecords = records.filter(r => r.member_id === m.id && r.attendance_status === 'present' && validSessionIds.has(r.session_id));
+        const leaveRecords = records.filter(r => r.member_id === m.id && r.attendance_status === 'leave' && validSessionIds.has(r.session_id));
         
         const totalPresent = presentRecords.length;
-        const totalSessions = validSessions.length;
+        const totalLeave = leaveRecords.length;
+        const totalSessions = Math.max(0, validSessions.length - totalLeave);
+        const totalAbsent = Math.max(0, totalSessions - totalPresent);
         const rate = totalSessions === 0 ? 0 : Math.round((totalPresent / totalSessions) * 100);
         
         let currentStreak = 0;
@@ -105,6 +108,9 @@ export default function Members() {
             if (r && r.attendance_status === 'present') {
                 if (!lastPresent) lastPresent = s.session_date;
                 if (!lastAbsent) currentStreak++;
+            } else if (r && r.attendance_status === 'leave') {
+                // Don't break streak for leave
+                continue;
             } else {
                 if (!lastAbsent) lastAbsent = s.session_date;
             }
@@ -113,19 +119,28 @@ export default function Members() {
         // For Charts
         const pieData = [
            { name: 'มาซ้อม', value: totalPresent, color: '#10b981' }, // green-500
-           { name: 'ขาดซ้อม', value: totalSessions - totalPresent, color: '#ef4444' } // red-500
+           { name: 'ขาดซ้อม', value: totalAbsent, color: '#ef4444' } // red-500
         ];
+        if (totalLeave > 0) pieData.push({ name: 'ลาพัก', value: totalLeave, color: '#f97316' }); // orange-500
 
         // Bar Chart (Last 10 sessions in filter)
         const last10Sessions = [...sortedValidSessions].slice(0, 10).reverse();
         const barData = last10Sessions.map(s => {
            const r = records.find(rec => rec.session_id === s.id && rec.member_id === m.id);
-           const isPresent = r && r.attendance_status === 'present';
+           let status = 0;
+           let label = 'ขาด';
+           if (r && r.attendance_status === 'present') {
+               status = 1;
+               label = 'มา';
+           } else if (r && r.attendance_status === 'leave') {
+               status = 0.5; // Visual representation of leave
+               label = 'ลา';
+           }
            return {
                date: formatThaiDate(s.session_date).split(' ')[0],
-               status: isPresent ? 1 : 0,
+               status,
                fullDate: s.session_date,
-               label: isPresent ? 'มา' : 'ขาด'
+               label
            };
         });
 
