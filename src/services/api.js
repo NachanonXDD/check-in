@@ -122,16 +122,15 @@ export const api = {
     }
 
     if (action === 'checkIn') {
-      // get session
       const { data: session } = await supabase.from('attendance_sessions').select('id').eq('session_date', params.date).single();
+      const status = params.status || 'present';
       
-      // check if record exists
       const { data: existing } = await supabase.from('attendance_records')
         .select('*').eq('session_id', session.id).eq('member_id', params.member_id).maybeSingle();
       
       if (existing) {
         const { error } = await supabase.from('attendance_records').update({
-          attendance_status: 'present',
+          attendance_status: status,
           checked_in_at: new Date().toISOString()
         }).eq('id', existing.id);
         if (error) throw error;
@@ -139,7 +138,7 @@ export const api = {
         const { error } = await supabase.from('attendance_records').insert([{
           session_id: session.id,
           member_id: params.member_id,
-          attendance_status: 'present',
+          attendance_status: status,
           checked_in_at: new Date().toISOString()
         }]);
         if (error) throw error;
@@ -159,15 +158,16 @@ export const api = {
       return true;
     }
 
-    if (action === 'checkAll') {
+    if (action === 'checkAll' || action === 'checkInBulk') {
       const { data: session } = await supabase.from('attendance_sessions').select('id').eq('session_date', params.date).single();
       const now = new Date().toISOString();
+      const status = params.status || 'present';
       
       // Upsert records
       const upsertData = params.member_ids.map(id => ({
         session_id: session.id,
         member_id: id,
-        attendance_status: 'present',
+        attendance_status: status,
         checked_in_at: now
       }));
       
@@ -182,14 +182,20 @@ export const api = {
       const { data: existing } = await supabase.from('attendance_records')
         .select('*').eq('session_id', session.id).eq('member_id', params.member_id).maybeSingle();
 
+      const updateData = { note: params.note };
+      if (params.status) {
+         updateData.attendance_status = params.status;
+         updateData.checked_in_at = new Date().toISOString();
+      }
+
       if (existing) {
-        const { error } = await supabase.from('attendance_records').update({ note: params.note }).eq('id', existing.id);
+        const { error } = await supabase.from('attendance_records').update(updateData).eq('id', existing.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('attendance_records').insert([{
           session_id: session.id,
           member_id: params.member_id,
-          note: params.note
+          ...updateData
         }]);
         if (error) throw error;
       }

@@ -21,7 +21,7 @@ export default function CheckIn() {
   // Modals
   const [cancelModal, setCancelModal] = useState({ isOpen: false, member: null });
   const [checkAllModal, setCheckAllModal] = useState(false);
-  const [noteModal, setNoteModal] = useState({ isOpen: false, member: null, note: '' });
+  const [noteModal, setNoteModal] = useState({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' });
 
   const { addToast } = useToast();
   
@@ -120,11 +120,15 @@ export default function CheckIn() {
 
   const handleSaveNote = async (e) => {
     e.preventDefault();
-    const { member, note } = noteModal;
-    setNoteModal({ isOpen: false, member: null, note: '' });
+    const { member, status, noteType, customNote } = noteModal;
+    let finalNote = noteType === 'อื่นๆ' ? customNote : noteType;
+    if (noteType === 'ไม่มี') finalNote = '';
+
+    setNoteModal({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' });
     try {
-      await api.post('updateNote', { member_id: member.id, date: currentDate, note });
-      addToast(`บันทึกหมายเหตุ ${member.nickname} สำเร็จ`);
+      await api.post('updateNote', { member_id: member.id, date: currentDate, note: finalNote, status });
+      addToast(`บันทึกข้อมูล ${member.nickname} สำเร็จ`);
+      fetchData();
     } catch (err) {
       addToast('เกิดข้อผิดพลาด', 'error');
       fetchData();
@@ -134,6 +138,26 @@ export default function CheckIn() {
   const getRecord = (memberId) => records.find(r => r.member_id === memberId);
   const getStatus = (memberId) => getRecord(memberId)?.attendance_status || 'absent';
   const isCheckedIn = (memberId) => getStatus(memberId) !== 'absent';
+
+  const openNoteModal = (member) => {
+    const record = getRecord(member.id);
+    const status = record?.attendance_status || 'absent';
+    const existingNote = record?.note || '';
+    
+    let noteType = 'ไม่มี';
+    let customNote = '';
+
+    if (existingNote) {
+      if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(existingNote)) {
+        noteType = existingNote;
+      } else {
+        noteType = 'อื่นๆ';
+        customNote = existingNote;
+      }
+    }
+
+    setNoteModal({ isOpen: true, member, status, noteType, customNote });
+  };
 
   const getFilteredMembers = (status) => {
     return members
@@ -216,7 +240,7 @@ export default function CheckIn() {
                     const note = getRecord(m.id)?.note;
                     return (
                       <div key={m.id} className="flex items-center justify-between p-3 border border-border rounded-2xl bg-gray-50/50">
-                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: note || '' })}>
+                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => openNoteModal(m)}>
                           <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
                           <div className="min-w-0">
                             <div className="font-medium text-ink truncate">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
@@ -224,7 +248,6 @@ export default function CheckIn() {
                           </div>
                         </div>
                         <div className="flex gap-2 shrink-0">
-                          <Button variant="text" className="px-3 py-1.5 text-sm text-orange-600 hover:bg-orange-50" onClick={() => handleCheckIn(m, 'leave')}>ลา</Button>
                           <Button variant="secondary" className="px-4 py-1.5 text-sm" onClick={() => handleCheckIn(m, 'present')}>เช็คชื่อ</Button>
                         </div>
                       </div>
@@ -244,7 +267,7 @@ export default function CheckIn() {
                     const record = getRecord(m.id);
                     return (
                       <div key={m.id} className="flex items-center justify-between p-3 border border-green-200 bg-green-50 rounded-2xl">
-                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: record?.note || '' })}>
+                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => openNoteModal(m)}>
                           <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
                           <div className="min-w-0">
                             <div className="font-medium text-ink truncate">{m.nickname} <span className="text-xs text-ink-soft font-normal ml-1">({group})</span></div>
@@ -274,7 +297,7 @@ export default function CheckIn() {
                     const record = getRecord(m.id);
                     return (
                       <div key={m.id} className="flex items-center justify-between p-3 border border-orange-200 bg-orange-50 rounded-2xl">
-                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => setNoteModal({ isOpen: true, member: m, note: record?.note || '' })}>
+                        <div className="flex-1 cursor-pointer flex items-center gap-3" onClick={() => openNoteModal(m)}>
                           <Avatar src={m.avatar_url} alt={m.nickname} size="sm" />
                           <div className="min-w-0">
                             <div className="font-medium text-orange-700 truncate">{m.nickname} <span className="text-xs opacity-70 font-normal ml-1">({group})</span></div>
@@ -314,16 +337,57 @@ export default function CheckIn() {
         message="ต้องการเช็คชื่อสมาชิกที่ยังไม่ได้เช็คชื่อทั้งหมดหรือไม่?"
       />
 
-      <Modal isOpen={noteModal.isOpen} onClose={() => setNoteModal({ isOpen: false, member: null, note: '' })} title={`หมายเหตุ: ${noteModal.member?.nickname}`}>
-        <div className="space-y-4">
-          <Input 
-            placeholder="เช่น มาสาย, ซ้อมแยก, บาดเจ็บ" 
-            value={noteModal.note}
-            onChange={(e) => setNoteModal({ ...noteModal, note: e.target.value })}
-            autoFocus
-          />
-          <Button className="w-full" onClick={handleSaveNote}>บันทึกหมายเหตุ</Button>
-        </div>
+      <Modal isOpen={noteModal.isOpen} onClose={() => setNoteModal({ isOpen: false, member: null, status: 'absent', noteType: 'ไม่มี', customNote: '' })} title={`จัดการข้อมูล: ${noteModal.member?.nickname}`}>
+        <form onSubmit={handleSaveNote} className="space-y-4">
+          <div>
+             <label className="block text-sm font-medium text-ink mb-2">สถานะ</label>
+             <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                   <input type="radio" name="status" checked={noteModal.status === 'absent'} onChange={() => setNoteModal({ ...noteModal, status: 'absent' })} className="accent-primary" />
+                   <span className="text-sm">ขาด / ยังไม่มาซ้อม</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                   <input type="radio" name="status" checked={noteModal.status === 'present'} onChange={() => setNoteModal({ ...noteModal, status: 'present' })} className="accent-primary" />
+                   <span className="text-sm">มาซ้อม</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                   <input type="radio" name="status" checked={noteModal.status === 'leave'} onChange={() => setNoteModal({ ...noteModal, status: 'leave' })} className="accent-primary" />
+                   <span className="text-sm">ลาพัก (ไม่นำมาคิดเปอร์เซ็นต์)</span>
+                </label>
+             </div>
+          </div>
+          <div>
+             <label className="block text-sm font-medium text-ink mb-2">หมายเหตุ</label>
+             <Select 
+                value={noteModal.noteType} 
+                onChange={(e) => {
+                   const val = e.target.value;
+                   let newStatus = noteModal.status;
+                   if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(val)) {
+                      newStatus = 'leave';
+                   }
+                   setNoteModal({ ...noteModal, noteType: val, status: newStatus });
+                }}
+             >
+                <option value="ไม่มี">-- ไม่มี --</option>
+                <option value="ลา">ลา</option>
+                <option value="บาดเจ็บ">บาดเจ็บ</option>
+                <option value="วันพัก">วันพัก</option>
+                <option value="อื่นๆ">อื่นๆ (พิมพ์เอง)</option>
+             </Select>
+             {noteModal.noteType === 'อื่นๆ' && (
+                <div className="mt-2">
+                  <Input 
+                    placeholder="พิมพ์หมายเหตุ..." 
+                    value={noteModal.customNote}
+                    onChange={(e) => setNoteModal({ ...noteModal, customNote: e.target.value })}
+                    autoFocus
+                  />
+                </div>
+             )}
+          </div>
+          <Button type="submit" className="w-full">บันทึกข้อมูล</Button>
+        </form>
       </Modal>
     </div>
   );
