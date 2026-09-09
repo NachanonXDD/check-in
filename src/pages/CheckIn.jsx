@@ -128,9 +128,9 @@ export default function CheckIn() {
     let finalStatus = originalStatus;
     
     // Auto-switch to leave if it's an excused note
-    if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(noteType)) {
+    if (['ลา', 'บาดเจ็บ', 'วันพัก', 'ติดเรียน'].includes(noteType)) {
       finalStatus = 'leave';
-    } else if (originalStatus === 'leave' && noteType !== 'ลา' && noteType !== 'บาดเจ็บ' && noteType !== 'วันพัก') {
+    } else if (originalStatus === 'leave' && !['ลา', 'บาดเจ็บ', 'วันพัก', 'ติดเรียน'].includes(noteType)) {
       // If it was leave, but note is removed or changed to something else, revert to absent
       finalStatus = 'absent';
     }
@@ -159,7 +159,7 @@ export default function CheckIn() {
     let customNote = '';
 
     if (existingNote) {
-      if (['ลา', 'บาดเจ็บ', 'วันพัก'].includes(existingNote)) {
+      if (['ลา', 'บาดเจ็บ', 'วันพัก', 'ติดเรียน'].includes(existingNote)) {
         noteType = existingNote;
       } else {
         noteType = 'อื่นๆ';
@@ -357,6 +357,7 @@ export default function CheckIn() {
              >
                 <option value="ไม่มี">-- ไม่มี --</option>
                 <option value="ลา">ลา</option>
+                <option value="ติดเรียน">ติดเรียน</option>
                 <option value="บาดเจ็บ">บาดเจ็บ</option>
                 <option value="วันพัก">วันพัก</option>
                 <option value="อื่นๆ">อื่นๆ (พิมพ์เอง)</option>
