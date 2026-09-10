@@ -9,9 +9,11 @@ import { Avatar } from '../components/Avatar';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import { Download, Users, UserCheck, Activity, Flame, Trophy, Calendar, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const { addToast } = useToast();
@@ -486,6 +488,17 @@ export default function Dashboard() {
                                    })}
                                </ul>
                            </div>
+                           
+                           {user && (
+                               <div className="pt-4 mt-6 border-t border-gray-100">
+                                   <Button 
+                                       className="w-full text-sm font-medium" 
+                                       onClick={() => navigate(`/checkin?date=${dayDetailModal.session.session_date}`)}
+                                   >
+                                       แก้ไขข้อมูลของวันที่นี้
+                                   </Button>
+                               </div>
+                           )}
                        </div>
                    );
                })()

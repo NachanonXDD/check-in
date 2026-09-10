@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Button, Badge, Input, Select, Loading, EmptyState } from '../components/UI';
 import { ConfirmDialog, Modal } from '../components/Modal';
 import { api } from '../services/api';
@@ -8,11 +9,21 @@ import { Search, CheckCircle2, Circle, X } from 'lucide-react';
 import { Avatar } from '../components/Avatar';
 
 export default function CheckIn() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [records, setRecords] = useState([]);
-  const [currentDate, setCurrentDate] = useState(getCurrentISODate());
+  const [currentDate, setCurrentDate] = useState(searchParams.get('date') || getCurrentISODate());
+  
+  // Sync URL when date changes
+  useEffect(() => {
+    if (currentDate !== getCurrentISODate()) {
+      setSearchParams({ date: currentDate });
+    } else {
+      setSearchParams({});
+    }
+  }, [currentDate, setSearchParams]);
   
   // Filters
   const [search, setSearch] = useState('');
