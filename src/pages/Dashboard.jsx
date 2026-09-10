@@ -8,7 +8,7 @@ import { formatThaiDate, getCurrentISODate, formatThaiTime } from '../utils/date
 import { Avatar } from '../components/Avatar';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
-import { Download, Users, UserCheck, Activity, Flame, Trophy, Calendar, ChevronRight } from 'lucide-react';
+import { Download, Users, UserCheck, Activity, Flame, Trophy, Calendar, ChevronRight, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
@@ -26,18 +26,25 @@ export default function Dashboard() {
 
   const [dayDetailModal, setDayDetailModal] = useState({ isOpen: false, session: null, records: [] });
 
+  const fetchData = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    try {
+      const result = await api.get('getDashboardData');
+      setData(result);
+    } catch (err) {
+      addToast('โหลดข้อมูลล้มเหลว', 'error');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await api.get('getDashboardData');
-        setData(result);
-      } catch (err) {
-        addToast('โหลดข้อมูลล้มเหลว', 'error');
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
+    
+    // Auto-refresh silently when window regains focus
+    const onFocus = () => fetchData(false);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
 
   const filteredData = useMemo(() => {
@@ -217,6 +224,7 @@ export default function Dashboard() {
           <p className="text-ink-soft">สรุปข้อมูลสถิติและอัตราการเข้าร่วมของทีม</p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={() => fetchData(true)} variant="secondary" className="flex items-center gap-2 rounded-xl text-sm shadow-sm"><RefreshCw size={16}/></Button>
           <Button onClick={() => handleExport('csv')} variant="secondary" className="flex items-center gap-2 rounded-xl text-sm shadow-sm"><Download size={16}/> CSV</Button>
           <Button onClick={() => handleExport('excel')} variant="primary" className="flex items-center gap-2 rounded-xl text-sm shadow-sm shadow-blue-200"><Download size={16}/> Excel</Button>
         </div>
